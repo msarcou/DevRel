@@ -20,7 +20,7 @@ jobs:
 
       - name: Build challenge.go
         run: |
-          cd Challenge_GO
+          cd Go_Challenge
           go build -v -o challenge challenge.go
 
       - name: Show output binary
