@@ -1,0 +1,29 @@
+name: Build & Deploy Go Project
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-go:
+    name: Build challenge.go
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'  # Utilise la version Go que tu veux
+
+      - name: Build challenge.go
+        run: |
+          go version
+          go build -v -o challenge challenge.go
+
+      - name: List output files
+        run: ls -lh
