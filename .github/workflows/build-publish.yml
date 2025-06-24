@@ -1,6 +1,6 @@
 name: Build and Publish Go Challenge
 
-on:
+on: 
   push:
   workflow_dispatch: 
 
