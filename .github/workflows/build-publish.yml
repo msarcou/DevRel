@@ -1,17 +1,23 @@
-name: Build & Deploy Go Project
+name: Build and Publish Go Challenge
 
 on:
   push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Compile Go_Challenge/challenge.go
+  build-and-publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Debug - show directory
+        run: ls -R
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -21,8 +27,19 @@ jobs:
       - name: Build challenge.go
         run: |
           cd Go_Challenge
+          go mod init challenge || true  # au cas où le go.mod n’existe pas
           go build -v -o challenge challenge.go
 
-      - name: Show output binary
-        run: ls -lh Go_Challenge/challenge 
+      - name: Setup JFrog CLI with OIDC
+        uses: jfrog/setup-jfrog-cli@v4
+        with:
+          oidc-provider-name: github
+          custom-server-id: artifactory-prod
+        env:
+          JF_URL: https://trialsar.jfrog.io
+          JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
 
+      - name: Push binary to JFrog Artifactory
+        run: |
+          cd Go_Challenge
+          jf rt upload "challenge" "go-local/challenge-go/${{ github.sha }}/"
