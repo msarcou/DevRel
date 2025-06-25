@@ -46,7 +46,6 @@ jobs:
         run: |
           cd $MODULE_PATH
           go build -v -o challenge challenge.go
-          mv challenge challenge-DEV
 
       - name: Setup JFrog CLI with OIDC
         uses: jfrog/setup-jfrog-cli@v4
