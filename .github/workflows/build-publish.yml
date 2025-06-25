@@ -20,23 +20,28 @@ jobs:
       - name: Debug - show directory
         run: ls -R *
 
-      - name: Cache Go modules and build cache
-        uses: actions/cache@v3
-        with:
-          # chemins à mettre en cache
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          # générer la clé à partir du hash de go.sum
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          # clés de repli en cas de miss
-          restore-keys: |
-            ${{ runner.os }}-go-
+      - uses: actions/checkout@v3
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: 1.22.12
+
+      - name: Initialize Go module & download deps
+        run: |
+          cd Go_Challenge
+          go mod init challenge || true
+          go mod tidy          # génère go.sum et remplit pkg/mod
+
+      - name: Cache Go modules and build cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('Go_Challenge/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Build challenge.go
         run: |
