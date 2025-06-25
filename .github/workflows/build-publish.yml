@@ -1,5 +1,5 @@
 name: Build and Publish Go Challenge
- 
+
 on:
   push:
   workflow_dispatch:
@@ -7,33 +7,33 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [DEV, STAGING, PROD]
+
+    name: Build & Deploy to ${{ matrix.environment }}
     permissions:
       id-token: write
       contents: read
       security-events: write
 
-    defaults:
-      run:
-        working-directory: Go_Challenge
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Debug - show working dir structure
-        run: ls -alR
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: 1.22.12
 
-      - name: Generate go.sum (before caching)
-        run: go mod tidy
-        working-directory: Go_Challenge
+      - name: Initialize Go module & download deps
+        run: |
+          cd Go_Challenge
+          go mod init challenge || true
+          go mod tidy
 
       - name: Cache Go modules and build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cache/go-build
@@ -42,8 +42,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Build Go binary
-        run: go build -v -o challenge challenge.go
+      - name: Build challenge.go
+        run: |
+          cd Go_Challenge
+          go build -v -o challenge challenge.go
 
       - name: Setup JFrog CLI with OIDC
         uses: jfrog/setup-jfrog-cli@v4
@@ -56,18 +58,25 @@ jobs:
           JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
 
       - name: Collect environment variables for Build Info
-        run: jf rt bce "go-challenge-build" "${{ github.run_number }}"
+        run: |
+          jf rt bce "go-challenge-build-${{ matrix.environment }}" "${{ github.run_number }}"
 
       - name: Upload binary to Artifactory
         run: |
-          jf rt upload "challenge" "go-local/challenge-go/${{ github.sha }}/" \
-            --build-name="go-challenge-build" \
+          cd Go_Challenge
+          jf rt upload "challenge" "go-local/challenge-go/${{ matrix.environment }}/" \
+            --build-name="go-challenge-build-${{ matrix.environment }}" \
             --build-number="${{ github.run_number }}"
 
+      - name: Set build properties (environment=${{ matrix.environment }})
+        run: |
+          jf rt bpr "go-challenge-build-${{ matrix.environment }}" "${{ github.run_number }}" environment=${{ matrix.environment }}
+
       - name: Publish Build Info
-        run: jf rt bp "go-challenge-build" "${{ github.run_number }}"
+        run: |
+          jf rt bp "go-challenge-build-${{ matrix.environment }}" "${{ github.run_number }}"
 
       - name: Scan build with Xray
-        run: jf bs "go-challenge-build" "${{ github.run_number }}"
+        run: |
+          jf bs "go-challenge-build-${{ matrix.environment }}" "${{ github.run_number }}"
 
-      
