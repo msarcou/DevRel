@@ -6,15 +6,16 @@ on:
 
 jobs:
   build-dev:
-    name: Build & Publish to DEV
+    name: Build in DEV
     runs-on: ubuntu-latest
+
     permissions:
       id-token: write
       contents: read
       security-events: write
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Go
@@ -22,13 +23,13 @@ jobs:
         with:
           go-version: 1.22.12
 
-      - name: Initialize Go module
+      - name: Init & tidy
         run: |
           cd Go_Challenge
           go mod init challenge || true
           go mod tidy
 
-      - name: Cache Go modules
+      - name: Cache Go deps
         uses: actions/cache@v3
         with:
           path: |
@@ -53,28 +54,29 @@ jobs:
           JF_URL: https://trialsar.jfrog.io
           JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
 
-      - name: Collect build environment
+      - name: Collect build info
         run: |
           jf rt bce "go-challenge-build-DEV" "${{ github.run_number }}"
 
-      - name: Upload to Artifactory
+      - name: Upload binary to Artifactory
         run: |
           cd Go_Challenge
-          jf rt upload "challenge" "go-local/challenge-go/${{ github.sha }}/" \
+          jf rt upload "challenge" "go-local/challenge-go/DEV/${{ github.sha }}/" \
             --build-name="go-challenge-build-DEV" \
             --build-number="${{ github.run_number }}"
+
+      - name: Set property environment=DEV
+        run: |
+          jf rt sp "go-local/challenge-go/DEV/${{ github.sha }}/challenge" "environment/environment=DEV"
 
       - name: Publish build info
         run: |
           jf rt bp "go-challenge-build-DEV" "${{ github.run_number }}"
 
-      - name: Tag environment=DEV
-        run: |
-          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" environment=DEV
-
       - name: Scan build with Xray
         run: |
           jf bs "go-challenge-build-DEV" "${{ github.run_number }}"
+
 
   promote-staging:
     name: Promote to STAGING
@@ -90,22 +92,19 @@ jobs:
           oidc-audience: jfrog-github
         env:
           JF_URL: https://trialsar.jfrog.io
-          JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
 
       - name: Promote build to STAGING
         run: |
           jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" \
-            --target-repo=go-local \
-            --status=promoted-to-staging \
-            --comment="Promoted to STAGING" \
-            environment=STAGING \
-            --copy=true \
-            --build-name="go-challenge-build-STAGING" \
-            --build-number="${{ github.run_number }}"
+            --status="staged" \
+            --comment="Promoting to STAGING" \
+            --target-repo="go-local" \
+            --copy=true
 
-      - name: Publish promoted build STAGING
+      - name: Set property environment=STAGING
         run: |
-          jf rt bp "go-challenge-build-STAGING" "${{ github.run_number }}"
+          jf rt sp "go-local/challenge-go/STAGING/${{ github.sha }}/challenge" "environment/environment=STAGING"
+
 
   promote-prod:
     name: Promote to PROD
@@ -121,19 +120,15 @@ jobs:
           oidc-audience: jfrog-github
         env:
           JF_URL: https://trialsar.jfrog.io
-          JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
 
       - name: Promote build to PROD
         run: |
-          jf rt bpr "go-challenge-build-STAGING" "${{ github.run_number }}" \
-            --target-repo=go-local \
-            --status=promoted-to-prod \
-            --comment="Promoted to PROD" \
-            environment=PROD \
-            --copy=true \
-            --build-name="go-challenge-build-PROD" \
-            --build-number="${{ github.run_number }}"
+          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" \
+            --status="released" \
+            --comment="Promoting to PROD" \
+            --target-repo="go-local" \
+            --copy=true
 
-      - name: Publish promoted build PROD
+      - name: Set property environment=PROD
         run: |
-          jf rt bp "go-challenge-build-PROD" "${{ github.run_number }}"
+          jf rt sp "go-local/challenge-go/PROD/${{ github.sha }}/challenge" "environment/environment=PROD"
