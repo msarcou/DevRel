@@ -3,7 +3,7 @@ name: Build and Publish Go Challenge
 on: 
   push:
   workflow_dispatch: 
- 
+
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
