@@ -40,18 +40,23 @@ jobs:
         env:
           JF_URL: https://trialsar.jfrog.io
           JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
+         
+      - name: Collect environment variables for Build Info
+        run: |
+          jf rt bce "go-challenge-build" "${{ github.run_number }}"
 
-      - name: Push binary to JFrog Artifactory
+      - name: Upload binary to Artifactory
         run: |
           cd Go_Challenge
-          jf rt upload "challenge" "go-local/challenge-go/${{ github.sha }}/"
-          
-      - name: Collect environment variables for Build Info
-        run: jf rt build-collect-env
+          jf rt upload "challenge" "go-local/challenge-go/${{ github.sha }}/" \
+            --build-name="go-challenge-build" \
+            --build-number="${{ github.run_number }}"
 
       - name: Publish Build Info
-        run: jf rt bp "go-challenge-build" "${{ github.run_number }}"
+        run: |
+          jf rt bp "go-challenge-build" "${{ github.run_number }}"
 
       - name: Scan build with Xray
-        run: jf bs "go-challenge-build" "${{ github.run_number }}"
+        run: |
+          jf bs "go-challenge-build" "${{ github.run_number }}"
       
