@@ -81,7 +81,6 @@ jobs:
       - name: Promote to STAGING
         run: |
           jf rt bpr "${BUILD_NAME}-DEV" "${{ github.run_number }}" "${BUILD_NAME}-STAGING" \
-            --target-repo="go-local" \
             --status="Promoted to STAGING" \
             --copy=true \
             --props="environment=STAGING" \
