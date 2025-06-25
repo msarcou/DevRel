@@ -1,123 +1,154 @@
+
 name: Build and Promote Go Challenge
 
 on:
-  workflow_dispatch:
   push:
+  workflow_dispatch:
 
 jobs:
-  build-publish-promote:
+  build-dev:
+    name: Build in DEV
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
       security-events: write
 
-    env:
-      JF_URL: https://trialsar.jfrog.io
-      BUILD_NAME: go-challenge-build
-      MODULE_PATH: Go_Challenge
-      TARGET_REPO: go-local
-      BUILD_NUMBER_DEV: ${{ github.run_number }}-DEV
-      BUILD_NUMBER_STAGING: ${{ github.run_number }}-STAGING
-      BUILD_NUMBER_PROD: ${{ github.run_number }}-PROD
-
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: 1.22.12
 
-      - name: Init Go module
+      - name: Init & tidy
         run: |
-          cd $MODULE_PATH
+          cd Go_Challenge
           go mod init challenge || true
           go mod tidy
-
-      - name: Cache Go modules
+      - name: Cache Go deps
         uses: actions/cache@v3
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('Go_Challenge/go.sum') }}
-          restore-keys: ${{ runner.os }}-go-
-
-      - name: Build Go binary
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Build binary
         run: |
-          cd $MODULE_PATH
+          cd Go_Challenge
           go build -v -o challenge challenge.go
-
-      - name: Setup JFrog CLI with OIDC
+      - name: Setup JFrog CLI
         uses: jfrog/setup-jfrog-cli@v4
         with:
           oidc-provider-name: github
           custom-server-id: artifactory-prod
           oidc-audience: jfrog-github
         env:
+          JF_URL: https://trialsar.jfrog.io
           JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
 
-      - name: Collect DEV build info
+      - name: Collect build info
         run: |
-          jf rt bce "${BUILD_NAME}" "${BUILD_NUMBER_DEV}"
-
-      - name: Upload binary to DEV
+          jf rt bce "go-challenge-build-DEV" "${{ github.run_number }}"
+      - name: Upload binary to Artifactory
         run: |
-          jf rt upload "${MODULE_PATH}/challenge" "go-local/challenge-go/${{ github.sha }}/" \
-            --build-name="${BUILD_NAME}" \
-            --build-number="${BUILD_NUMBER_DEV}"
-
-      - name: Set DEV properties
+          cd Go_Challenge
+          jf rt upload "challenge" "go-local/challenge-go/DEV/${{ github.sha }}/" \
+            --build-name="go-challenge-build-DEV" \
+            --build-number="${{ github.run_number }}"
+      - name: Set property environment=DEV
         run: |
-          jf rt sp "go-local/challenge-go/${{ github.sha }}/challenge" "environment=DEV"
-
-      - name: Publish DEV build info
+          jf rt sp "go-local/challenge-go/DEV/${{ github.sha }}/challenge" "environment=DEV"
+      - name: Publish build info
         run: |
-          jf rt bp "${BUILD_NAME}" "${BUILD_NUMBER_DEV}"
-
-      - name: Scan with Xray
+          jf rt bp "go-challenge-build-DEV" "${{ github.run_number }}"
+      - name: Scan build with Xray
         run: |
-          jf bs "${BUILD_NAME}" "${BUILD_NUMBER_DEV}" || echo "No blocking policy, continuing..."
+          jf bs "go-challenge-build-DEV" "${{ github.run_number }}"
+  promote-staging:
+    name: Promote to STAGING
+    runs-on: ubuntu-latest
+    needs: build-dev
+    permissions:
+      id-token: write
+      contents: read
+      security-events: write
 
-      - name: Promote to STAGING
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.12
+
+      - name: Init & tidy
         run: |
-          jf rt bpr "${BUILD_NAME}" "${BUILD_NUMBER_DEV}" "${TARGET_REPO}" \
-            --status="Promoted to STAGING" \
-            --copy=true \
-            --props="environment=STAGING" \
-            --comment="Promoting to STAGING"
-
-      - name: Collect STAGING build info
+          cd Go_Challenge
+          go mod init challenge || true
+          go mod tidy
+      - name: Cache Go deps
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('Go_Challenge/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Build binary
         run: |
-          jf rt bce "${BUILD_NAME}" "${BUILD_NUMBER_STAGING}"
+          cd Go_Challenge
+          go build -v -o challenge challenge.go
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
+        with:
+          oidc-provider-name: github
+          custom-server-id: artifactory-prod
+          oidc-audience: jfrog-github
+        env:
+          JF_URL: https://trialsar.jfrog.io
+          JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
 
-      - name: Publish STAGING build info
+      - name: Promote build to STAGING
         run: |
-          jf rt bp "${BUILD_NAME}" "${BUILD_NUMBER_STAGING}"
-
-      - name: Scan with Xray
+          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" \
+            --status="staged" \
+            --comment="Promoting to STAGING" \
+            --target-repo="go-local" \
+            --copy=true
+            
+      - name: Set property environment=STAGING/environment=STAGING"
         run: |
-          jf bs "${BUILD_NAME}" "${BUILD_NUMBER_STAGING}" || echo "No blocking policy, continuing..."
+          jf rt sp "go-local/challenge-go/STAGING/${{ github.sha }}/challenge" "environment=STAGING"
+  
+  promote-prod:
+    name: Promote to PROD
+    runs-on: ubuntu-latest
+    needs: promote-staging
 
+    steps:
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
+        with:
+          oidc-provider-name: github
+          custom-server-id: artifactory-prod
+          oidc-audience: jfrog-github
+        env:
+          JF_URL: https://trialsar.jfrog.io
 
-      - name: Promote to PROD
+      - name: Promote build to PROD
         run: |
-          jf rt bpr "${BUILD_NAME}" "${BUILD_NUMBER_DEV}" "${TARGET_REPO}" \
-            --status="Promoted to PROD" \
-            --copy=true \
-            --props="environment=PROD" \
-            --comment="Promoting to PROD"
-
-      - name: Collect PROD build info
+          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" \
+            --status="released" \
+            --comment="Promoting to PROD" \
+            --target-repo="go-local" \
+            --copy=true
+      - name: Set property environment=PROD
         run: |
-          jf rt bce "${BUILD_NAME}" "${BUILD_NUMBER_PROD}"
-
-      - name: Publish PROD build info
-        run: |
-          jf rt bp "${BUILD_NAME}" "${BUILD_NUMBER_PROD}"
-
-      - name: Scan with Xray
-        run: |
-          jf bs "${BUILD_NAME}" "${BUILD_NUMBER_PROD}" || echo "No blocking policy, continuing..."
+          jf rt sp "go-local/challenge-go/PROD/${{ github.sha }}/challenge" "environment=PROD"
