@@ -2,8 +2,7 @@ name: Go Challenge CI/CD
 
 on:
   push:
-    branches: [ main ]
-
+  
 jobs:
   build-and-promote:
     runs-on: ubuntu-latest
@@ -22,9 +21,15 @@ jobs:
       with:
         version: 2.77.0  # dernière version stable
 
-    - name: Configure JFrog CLI
-      run: jf c add --url="${{ secrets.JF_URL }}" --user="${{ secrets.JF_USER }}" --password="${{ secrets.JF_PASSWORD }}" --interactive=false --server-id=default
-
+    - name: Setup JFrog CLI (OIDC)
+        uses: jfrog/setup-jfrog-cli@v4
+        with:
+          oidc-provider-name: github
+          custom-server-id: artifactory-prod
+          oidc-audience: jfrog-github
+        env:
+          JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
+          
     - name: Build Go binary
       run: |
         go build -o challenge
