@@ -80,14 +80,12 @@ jobs:
 
       - name: Promote to STAGING
         run: |
-          jf rt bpr "${BUILD_NAME}-DEV" "${{ github.run_number }}" \
+          jf rt bpr "${BUILD_NAME}-DEV" "${{ github.run_number }}" "${BUILD_NAME}-STAGING" \
             --target-repo="go-local" \
             --status="Promoted to STAGING" \
             --copy=true \
             --props="environment=STAGING" \
-            --comment="Promoting to STAGING" \
-            --build-name="${BUILD_NAME}-STAGING" \
-            --build-number="${{ github.run_number }}"
+            --comment="Promoting to STAGING"
 
       - name: Publish STAGING build info
         run: |
@@ -95,14 +93,12 @@ jobs:
 
       - name: Promote to PROD
         run: |
-          jf rt bpr "${BUILD_NAME}-STAGING" "${{ github.run_number }}" \
-            --target-repo="go-local" \
+          jf rt bpr "${BUILD_NAME}-STAGING" "${{ github.run_number }}" "${BUILD_NAME}-PROD" \
             --status="Promoted to PROD" \
             --copy=true \
             --props="environment=PROD" \
-            --comment="Promoting to PROD" \
-            --build-name="${BUILD_NAME}-PROD" \
-            --build-number="${{ github.run_number }}"
+            --comment="Promoting to PROD"
+            
 
       - name: Publish PROD build info
         run: |
