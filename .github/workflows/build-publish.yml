@@ -97,6 +97,11 @@ jobs:
         run: |
           jf rt bp "${BUILD_NAME}" "${BUILD_NUMBER_STAGING}"
 
+      - name: Scan with Xray
+        run: |
+          jf bs "${BUILD_NAME}" "${BUILD_NUMBER_STAGING}" || echo "No blocking policy, continuing..."
+
+
       - name: Promote to PROD
         run: |
           jf rt bpr "${BUILD_NAME}" "${BUILD_NUMBER_DEV}" "${TARGET_REPO}" \
@@ -112,3 +117,7 @@ jobs:
       - name: Publish PROD build info
         run: |
           jf rt bp "${BUILD_NAME}" "${BUILD_NUMBER_PROD}"
+
+      - name: Scan with Xray
+        run: |
+          jf bs "${BUILD_NAME}" "${BUILD_NUMBER_PROD}" || echo "No blocking policy, continuing..."
