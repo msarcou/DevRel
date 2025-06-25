@@ -67,7 +67,7 @@ jobs:
 
       - name: Set property environment=DEV
         run: |
-          jf rt sp "go-local/challenge-go/DEV/${{ github.sha }}/challenge" "environment/environment=DEV"
+          jf rt sp "go-local/challenge-go/DEV/${{ github.sha }}/challenge" "environment=DEV"
 
       - name: Publish build info
         run: |
@@ -101,10 +101,10 @@ jobs:
             --target-repo="go-local" \
             --copy=true
 
-      - name: Set property environment=STAGING
-        run: |
-          jf rt sp "go-local/challenge-go/STAGING/${{ github.sha }}/challenge" "environment/environment=STAGING"
+      - name: Set property environment=STAGING/environment=STAGING"
 
+        run: |
+          jf rt sp "go-local/challenge-go/STAGING/${{ github.sha }}/challenge" "environment=STAGING"
 
   promote-prod:
     name: Promote to PROD
@@ -131,4 +131,4 @@ jobs:
 
       - name: Set property environment=PROD
         run: |
-          jf rt sp "go-local/challenge-go/PROD/${{ github.sha }}/challenge" "environment/environment=PROD"
+          jf rt sp "go-local/challenge-go/PROD/${{ github.sha }}/challenge" "environment=PROD"
