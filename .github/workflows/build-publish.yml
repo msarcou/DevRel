@@ -16,6 +16,7 @@ jobs:
       JF_URL: https://trialsar.jfrog.io
       BUILD_NAME: go-challenge-build
       MODULE_PATH: Go_Challenge
+      TARGET_REPO: go-local
 
     steps:
       - name: Checkout code
@@ -58,29 +59,29 @@ jobs:
 
       - name: Collect build info
         run: |
-          jf rt bce "${BUILD_NAME}-DEV" "${{ github.run_number }}"
+          jf rt bce "${BUILD_NAME}" "${{ github.run_number }}"
 
       - name: Upload DEV binary
         run: |
-          jf rt upload "${MODULE_PATH}/challenge-DEV" "go-local/challenge-go/DEV/${{ github.sha }}/" \
-            --build-name="${BUILD_NAME}-DEV" \
+          jf rt upload "${MODULE_PATH}/challenge" "go-local/challenge-go/${{ github.sha }}/" \
+            --build-name="${BUILD_NAME}" \
             --build-number="${{ github.run_number }}"
 
       - name: Set DEV properties
         run: |
-          jf rt sp "go-local/challenge-go/DEV/${{ github.sha }}/challenge-DEV" "environment=DEV"
+          jf rt sp "go-local/challenge-go/${{ github.sha }}/challenge" "environment=DEV"
 
       - name: Publish DEV build info
         run: |
-          jf rt bp "${BUILD_NAME}-DEV" "${{ github.run_number }}"
+          jf rt bp "${BUILD_NAME}" "${{ github.run_number }}"
 
       - name: Scan with Xray
         run: |
-          jf bs "${BUILD_NAME}-DEV" "${{ github.run_number }}" || echo "No blocking policy, continuing..."
+          jf bs "${BUILD_NAME}" "${{ github.run_number }}" || echo "No blocking policy, continuing..."
 
       - name: Promote to STAGING
         run: |
-          jf rt bpr "${BUILD_NAME}-DEV" "${{ github.run_number }}" "${BUILD_NAME}-STAGING" \
+          jf rt bpr "${BUILD_NAME}" "${{ github.run_number }}" "${TARGET_REPO}" \
             --status="Promoted to STAGING" \
             --copy=true \
             --props="environment=STAGING" \
@@ -88,11 +89,11 @@ jobs:
 
       - name: Publish STAGING build info
         run: |
-          jf rt bp "${BUILD_NAME}-STAGING" "${{ github.run_number }}"
+          jf rt bp "${BUILD_NAME}" "${{ github.run_number }}"
 
       - name: Promote to PROD
         run: |
-          jf rt bpr "${BUILD_NAME}-STAGING" "${{ github.run_number }}" "${BUILD_NAME}-PROD" \
+          jf rt bpr "${BUILD_NAME}" "${{ github.run_number }}" "${TARGET_REPO}" \
             --status="Promoted to PROD" \
             --copy=true \
             --props="environment=PROD" \
@@ -101,4 +102,4 @@ jobs:
 
       - name: Publish PROD build info
         run: |
-          jf rt bp "${BUILD_NAME}-PROD" "${{ github.run_number }}"
+          jf rt bp "${BUILD_NAME}" "${{ github.run_number }}"
