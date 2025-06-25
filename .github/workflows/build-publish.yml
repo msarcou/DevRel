@@ -122,8 +122,8 @@ jobs:
 
       - name: Promote build to STAGING
         run: |
-          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" "go-local-dev" \
-            --target-repo="go-local-staging" \
+          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" "go-local-staging" \
+            --source-repo="go-local-dev" \
             --status="staged" \
             --copy=true \
             --props="environment=STAGING" \
@@ -181,8 +181,8 @@ jobs:
 
       - name: Promote build to PROD
         run: |
-          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" "go-local-staging" \
-            --target-repo="go-local-prod" \
+          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" "go-local-prod" \
+            --source-repo="go-local-staging" \
             --status="released" \
             --copy=true \
             --props="environment=PROD" \
