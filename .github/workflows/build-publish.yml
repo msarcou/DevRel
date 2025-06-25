@@ -1,8 +1,8 @@
-name: Build and Publish Go Challenge 
- 
-on: 
+name: Build and Publish Go Challenge
+
+on:
   push:
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build-and-publish:
@@ -10,31 +10,26 @@ jobs:
     permissions:
       id-token: write
       contents: read
-      # Required for uploading code scanning.
       security-events: write
+
+    defaults:
+      run:
+        working-directory: Go_Challenge
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Debug - show directory
-        run: ls -R *
-
-      - uses: actions/checkout@v3
+      - name: Debug - show working dir structure
+        run: ls -alR
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: 1.22.12
 
-      - name: Initialize Go module & download deps
-        run: |
-          cd Go_Challenge
-          go mod init challenge || true
-          go mod tidy          # génère go.sum et remplit pkg/mod
-
       - name: Cache Go modules and build cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
@@ -43,11 +38,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Build challenge.go
-        run: |
-          cd Go_Challenge
-          go mod init challenge || true  # au cas où le go.mod n’existe pas
-          go build -v -o challenge challenge.go
+      - name: Download dependencies
+        run: go mod tidy
+
+      - name: Build Go binary
+        run: go build -v -o challenge challenge.go
 
       - name: Setup JFrog CLI with OIDC
         uses: jfrog/setup-jfrog-cli@v4
@@ -58,24 +53,20 @@ jobs:
         env:
           JF_URL: https://trialsar.jfrog.io
           JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
-         
+
       - name: Collect environment variables for Build Info
-        run: |
-          jf rt bce "go-challenge-build" "${{ github.run_number }}"
+        run: jf rt bce "go-challenge-build" "${{ github.run_number }}"
 
       - name: Upload binary to Artifactory
         run: |
-          cd Go_Challenge
           jf rt upload "challenge" "go-local/challenge-go/${{ github.sha }}/" \
             --build-name="go-challenge-build" \
             --build-number="${{ github.run_number }}"
 
       - name: Publish Build Info
-        run: |
-          jf rt bp "go-challenge-build" "${{ github.run_number }}"
+        run: jf rt bp "go-challenge-build" "${{ github.run_number }}"
 
       - name: Scan build with Xray
-        run: |
-          jf bs "go-challenge-build" "${{ github.run_number }}"
-          
+        run: jf bs "go-challenge-build" "${{ github.run_number }}"
+
       
