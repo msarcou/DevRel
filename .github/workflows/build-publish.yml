@@ -28,6 +28,10 @@ jobs:
         with:
           go-version: 1.22.12
 
+      - name: Generate go.sum (before caching)
+        run: go mod tidy
+        working-directory: Go_Challenge
+
       - name: Cache Go modules and build cache
         uses: actions/cache@v4
         with:
@@ -37,9 +41,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('Go_Challenge/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-
-      - name: Download dependencies
-        run: go mod tidy
 
       - name: Build Go binary
         run: go build -v -o challenge challenge.go
