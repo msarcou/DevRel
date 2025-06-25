@@ -1,17 +1,13 @@
-name: Build and Publish Go Challenge
+name: Build and Promote Go Challenge
 
 on:
   push:
   workflow_dispatch:
 
 jobs:
-  build-and-publish:
+  build-dev:
+    name: Build & Publish to DEV
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        environment: [DEV, STAGING, PROD]
-
-    name: Build & Deploy to ${{ matrix.environment }}
     permissions:
       id-token: write
       contents: read
@@ -26,13 +22,13 @@ jobs:
         with:
           go-version: 1.22.12
 
-      - name: Initialize Go module & download deps
+      - name: Initialize Go module
         run: |
           cd Go_Challenge
           go mod init challenge || true
           go mod tidy
 
-      - name: Cache Go modules and build cache
+      - name: Cache Go modules
         uses: actions/cache@v3
         with:
           path: |
@@ -42,12 +38,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Build challenge.go
+      - name: Build binary
         run: |
           cd Go_Challenge
           go build -v -o challenge challenge.go
 
-      - name: Setup JFrog CLI with OIDC
+      - name: Setup JFrog CLI
         uses: jfrog/setup-jfrog-cli@v4
         with:
           oidc-provider-name: github
@@ -57,26 +53,87 @@ jobs:
           JF_URL: https://trialsar.jfrog.io
           JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
 
-      - name: Collect environment variables for Build Info
+      - name: Collect build environment
         run: |
-          jf rt bce "go-challenge-build-${{ matrix.environment }}" "${{ github.run_number }}"
+          jf rt bce "go-challenge-build-DEV" "${{ github.run_number }}"
 
-      - name: Upload binary to Artifactory
+      - name: Upload to Artifactory
         run: |
           cd Go_Challenge
-          jf rt upload "challenge" "go-local/challenge-go/${{ matrix.environment }}/" \
-            --build-name="go-challenge-build-${{ matrix.environment }}" \
+          jf rt upload "challenge" "go-local/challenge-go/${{ github.sha }}/" \
+            --build-name="go-challenge-build-DEV" \
             --build-number="${{ github.run_number }}"
 
-      - name: Set build properties (environment=${{ matrix.environment }})
+      - name: Publish build info
         run: |
-          jf rt bpr "go-challenge-build-${{ matrix.environment }}" "${{ github.run_number }}" environment=${{ matrix.environment }}
+          jf rt bp "go-challenge-build-DEV" "${{ github.run_number }}"
 
-      - name: Publish Build Info
+      - name: Tag environment=DEV
         run: |
-          jf rt bp "go-challenge-build-${{ matrix.environment }}" "${{ github.run_number }}"
+          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" environment=DEV
 
       - name: Scan build with Xray
         run: |
-          jf bs "go-challenge-build-${{ matrix.environment }}" "${{ github.run_number }}"
+          jf bs "go-challenge-build-DEV" "${{ github.run_number }}"
 
+  promote-staging:
+    name: Promote to STAGING
+    runs-on: ubuntu-latest
+    needs: build-dev
+
+    steps:
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
+        with:
+          oidc-provider-name: github
+          custom-server-id: artifactory-prod
+          oidc-audience: jfrog-github
+        env:
+          JF_URL: https://trialsar.jfrog.io
+          JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
+
+      - name: Promote build to STAGING
+        run: |
+          jf rt bpr "go-challenge-build-DEV" "${{ github.run_number }}" \
+            --target-repo=go-local \
+            --status=promoted-to-staging \
+            --comment="Promoted to STAGING" \
+            environment=STAGING \
+            --copy=true \
+            --build-name="go-challenge-build-STAGING" \
+            --build-number="${{ github.run_number }}"
+
+      - name: Publish promoted build STAGING
+        run: |
+          jf rt bp "go-challenge-build-STAGING" "${{ github.run_number }}"
+
+  promote-prod:
+    name: Promote to PROD
+    runs-on: ubuntu-latest
+    needs: promote-staging
+
+    steps:
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
+        with:
+          oidc-provider-name: github
+          custom-server-id: artifactory-prod
+          oidc-audience: jfrog-github
+        env:
+          JF_URL: https://trialsar.jfrog.io
+          JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
+
+      - name: Promote build to PROD
+        run: |
+          jf rt bpr "go-challenge-build-STAGING" "${{ github.run_number }}" \
+            --target-repo=go-local \
+            --status=promoted-to-prod \
+            --comment="Promoted to PROD" \
+            environment=PROD \
+            --copy=true \
+            --build-name="go-challenge-build-PROD" \
+            --build-number="${{ github.run_number }}"
+
+      - name: Publish promoted build PROD
+        run: |
+          jf rt bp "go-challenge-build-PROD" "${{ github.run_number }}"
