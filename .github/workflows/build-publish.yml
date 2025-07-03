@@ -32,18 +32,17 @@ jobs:
         run: go mod tidy
         working-directory: Go_Challenge
 
-      - name: Cache Go modules and build cache
-        uses: actions/cache@v4
+      - name: Cache Go modules
+        uses: actions/cache@v3
         with:
+          # Adaptez le path au dossier de votre code, ici DevRel/
           path: |
-            ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('Go_Challenge/go.sum') }}
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('DevRel/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-          # passe dans DevRel/ avant de hash et de restaurer
-          working-directory: DevRel
-
+   
       - name: Build Go binary
         run: go build -v -o challenge challenge.go
 
