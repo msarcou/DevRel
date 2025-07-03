@@ -48,11 +48,10 @@ jobs:
       - name: Setup JFrog CLI with OIDC
         uses: jfrog/setup-jfrog-cli@v4
         with:
-          oidc-provider-name: github
-          custom-server-id: artifactory-prod
-          oidc-audience: jfrog-github
+          oidc-provider-name: githuboidc
+          oidc-audience: jfrogaudience
         env:
-          JF_URL: https://trialsar.jfrog.io
+          JF_URL: https://trialobdfvb.jfrog.io
           JFROG_CLI_AVOID_NEW_VERSION_WARNING: true
 
       - name: Collect environment variables for Build Info
