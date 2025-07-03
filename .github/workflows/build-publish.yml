@@ -41,6 +41,8 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('Go_Challenge/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+          # passe dans DevRel/ avant de hash et de restaurer
+          working-directory: DevRel
 
       - name: Build Go binary
         run: go build -v -o challenge challenge.go
